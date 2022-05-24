@@ -1,2 +1,3 @@
-# my_drone_project
-Implemented several image recognition use cases for the Tello drone 
+## Image detection use cases with the Tello drone
+
+_This project is currently 'work in progress'. This readme file will be updated once the project is finalized._
