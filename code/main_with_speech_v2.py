@@ -5,6 +5,9 @@ import tello_module as tm
 # Required imports for video streaming, face tracking and keyboard control
 import cv2
 import time
+import uuid
+import os
+import re
 
 # Required imports for speech detection
 from ssl import ALERT_DESCRIPTION_UNKNOWN_PSK_IDENTITY
@@ -49,13 +52,15 @@ if __name__ == '__main__':
     channels=CHANNELS,
     rate=RATE,
     input=True,
-    frames_per_buffer=FRAMES_PER_BUFFER
+    frames_per_buffer=FRAMES_PER_BUFFER,
+    input_device_index=2 # 0 = MacBook Air, 2 = Airpods
     )
 
     # Starts videostream
     me.streamon()
     img = me.get_frame_read().frame
     drone_is_on = True
+    mode = {}
 
     async def main():
         print(f'Connecting websocket to url ${URL}')
@@ -97,7 +102,7 @@ if __name__ == '__main__':
                             text = json.loads(result_str)['text']
                             if text != '':
                                 print('-> ', text)
-                                if text.split()[0].lower() == 'spicy':
+                                if re.findall('spicy|spice|i', text.split()[0].lower()):
                                     command = ' '.join(text.split()[1:])
                                     print(command)
                     except websockets.exceptions.ConnectionClosedError as e:
@@ -108,21 +113,41 @@ if __name__ == '__main__':
                         assert False, "Not a websocket 4008 error"
                 
             async def video_stream():
-                global img, drone_is_on
+                global img, drone_is_on, mode
+                last_time = time.time()
+                img_num = 1
+                dir_path = ''
                 while drone_is_on:
                     # Get and resize image from drone
                     img = me.get_frame_read().frame
                     img = cv2.resize(img, RES)
 
-                    # Show video and save image (use 'z' key)
+                    # Save images every 1 sec, if mode 'take_pics' is True
+                    if mode.get('take_pics', False) and (time.time() >= last_time + 1):
+                        print(f'Collecting image {img_num}')
+                        if img_num == 1:
+                            dir_path = os.path.join('..', 'data', f'image_batch_{time.time()}')
+                            os.mkdir(dir_path)
+                        img_name = os.path.join(dir_path, f'{str(uuid.uuid1())}.jpg')
+                        cv2.imwrite(img_name, img)
+                        cv2.circle(img, (180, 120), 10, (0, 255, 0), cv2.FILLED)
+                        img_num += 1
+                        last_time = time.time()
+                        n_pics = 50
+                        if img_num > n_pics:
+                            img_num = 1
+                            mode['take_pics'] = False
+                            print('{n_pics} images saved to disk!')
+
+                    # Show video
                     cv2.imshow("Image", img)
-                    cv2.waitKey(1)
+                    #cv2.waitKey(1)
 
                     # Escape loop, i.e. land drone and stop program
                     if cv2.waitKey(1) & 0xFF == 27:  # use ESC to quit
                         print('Landing drone and stopping program...')
                         me.land()
-                        me.streamoff
+                        me.streamoff()
                         cv2.destroyAllWindows()
                         drone_is_on = False
                     
@@ -130,7 +155,7 @@ if __name__ == '__main__':
                     await asyncio.sleep(0.01)
             
             async def drone_control():
-                global img, command, drone_is_on, prv_error, PID, FB_CENTER, RES
+                global img, command, drone_is_on, mode, prv_error, PID, FB_CENTER, RES
                 while drone_is_on:
                     # Fallback control settings
                     rc_params = (0, 0, 0, 0)
@@ -143,17 +168,13 @@ if __name__ == '__main__':
                     prv_error = error
                     
                     # Implement speech control (prio 2)
-                    print('before -> ', command)
-                    rc_params, rc_duration, command = tm.speech_control_drone(me, rc_params, rc_duration, command)
-                    print('after -> ', command)
-                    print('____')
+                    rc_params, rc_duration, command = tm.speech_control_drone(me, rc_params, rc_duration, mode, command)
                     
                     # Implement keyboard control (prio 1)
                     rc_params, rc_duration = tm.keyboard_control_drone(me, rc_params, rc_duration)
                     
                     # Send control signal to drone
                     lr, fb, ud, yv = rc_params
-                    # print(rc_params) # only for testing
                     me.send_rc_control(lr, fb, ud, yv)
                     await asyncio.sleep(rc_duration)
             

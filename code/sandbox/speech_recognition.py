@@ -13,7 +13,8 @@ stream = p.open(
    channels=CHANNELS,
    rate=RATE,
    input=True,
-   frames_per_buffer=FRAMES_PER_BUFFER
+   frames_per_buffer=FRAMES_PER_BUFFER,
+   input_device_index=2 # 2 = airpods, 0 = macbook air mic
 )
 
 import websockets
