@@ -58,15 +58,16 @@ def track_face(rc_params, face_data, pid, error, prv_error):
     
     return (lr, fb, ud, yv)
 
-def get_error(face_data, fb_center, res):
-    [cx, cy], area = face_data
+def get_alignment_error(object_data, fb_center, res):
+    [cx, cy], area = object_data
     width, height = res
 
     # Return 0 if no face is detected 
     error = (0, 0, 0, 0)
     # Calculate error for all dimensions (negative error should lead to positive speed!)
+    # Warning: lr and yv errors should not be used at the same time!!!
     if cx != 0:
-        lr_err = 0
+        lr_err = (cx - width / 2) / (width / 2) * 100
         fb_err = -1 * (area - fb_center) / fb_center * 100
         # fb_err = -1 * (max(area - FB_RANGE[1], 0) + min(area - FB_RANGE[0], 0)) / FB_CENTER * 100
         ud_err = -1 * (cy - height / 2) / (height / 2) * 100

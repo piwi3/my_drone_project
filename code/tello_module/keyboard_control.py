@@ -17,7 +17,7 @@ def get_key(key_name):
     pygame.display.update()
     return ans
 
-def keyboard_control_drone(me, rc_params, rc_duration):
+def keyboard_control_drone(me, rc_params):
     lr, fb, ud, yv = rc_params
     speed = 50 
 
@@ -50,11 +50,8 @@ def keyboard_control_drone(me, rc_params, rc_duration):
         yv = speed
     elif get_key('a'):
         yv = -speed
-
-    if (lr, fb, ud, yv) != rc_params:
-        rc_duration = 0
     
-    return (lr, fb, ud, yv), rc_duration
+    return (lr, fb, ud, yv)
 
 def save_image(img):
     if get_key('z'):
