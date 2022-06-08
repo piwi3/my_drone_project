@@ -1,5 +1,6 @@
 # Required imports for controlling tello drone
 from djitellopy import tello
+from matplotlib import image
 import tello_module as tm
 
 # Required imports for video streaming, face tracking and keyboard control
@@ -26,7 +27,7 @@ from tensorflow.python.keras.models import load_model
 if __name__ == '__main__':
 
     # Varibales for video streaming and drone control
-    WIDTH, HEIGHT = 360, 240
+    WIDTH, HEIGHT = 640, 480 
     RES = (WIDTH, HEIGHT)
     FB_RANGE = [6200, 6800]
     FB_CENTER = 6500
@@ -110,7 +111,7 @@ if __name__ == '__main__':
                             text = json.loads(result_str)['text']
                             if text != '':
                                 print('-> ', text)
-                                if re.findall('spicy|spice|i', text.split()[0].lower()):
+                                if re.findall('spicy|slightly|i', text.split()[0].lower()):
                                     command = ' '.join(text.split()[1:])
                                     print(command)
                     except websockets.exceptions.ConnectionClosedError as e:
@@ -123,36 +124,42 @@ if __name__ == '__main__':
             async def video_stream():
                 global img, drone_is_on, mode
                 last_time = time.time()
+                n_pics = 50
                 img_num = 1
                 dir_path = ''
+                out = None
                 while drone_is_on:
-                    # Get and resize image from drone
-                    img_full = me.get_frame_read().frame
-                    img = cv2.resize(img_full, RES)
+                    # Get and resize image from drone, adjust RES accordingly
+                    img = me.get_frame_read().frame
+                    img = cv2.resize(img, RES)
 
                     # Save images every 1 sec, if mode 'take_pics' is True
                     if mode.get('take_pics', False) and (time.time() >= last_time + 1):
-                        print(f'Collecting image {img_num}')
-                        if img_num == 1:
-                            dir_path = os.path.join('..', 'data', 'new', 'not_allocated', f'image_batch_{time.time()}')
-                            os.mkdir(dir_path)
-                        img_name = os.path.join(dir_path, f'{str(uuid.uuid1())}.jpg')
-                        cv2.imwrite(img_name, img_full)
-                        cv2.circle(img, (180, 120), 10, (0, 255, 0), cv2.FILLED)
-                        img_num += 1
-                        last_time = time.time()
-                        n_pics = 50
-                        if img_num > n_pics:
-                            img_num = 1
-                            mode['take_pics'] = False
-                            print('{n_pics} images saved to disk!')
+                        img, img_num, dir_path, last_time = tm.image_capt(img, img_num, dir_path)
+                    if img_num > n_pics:
+                        img_num = 1
+                        mode['take_pics'] = False
+                        print('{n_pics} images saved to disk!')
 
                     # Giving the other processes time to work
-                    await asyncio.sleep(0.01)
+                    # Placed before imshow to incoporate model output
+                    # Should be aligned with FPS = 30 
+                    await asyncio.sleep(1. / 30)
+
+                    # Record a video
+                    if mode.get('video_capt', False):
+                        # Record video if mode 'video_capt' is True
+                        out = tm.video_capt(img, out)
+                    else:
+                        # If 'video_capt' = False, 
+                        # release out and set it to None again
+                        if out != None:
+                            out.release()
+                            out = None
 
                     # Show video
                     cv2.imshow("Image", img)
-                    #cv2.waitKey(1)
+                    cv2.waitKey(1)
 
                     # Escape loop, i.e. land drone and stop program
                     if cv2.waitKey(1) & 0xFF == 27:  # use ESC to quit

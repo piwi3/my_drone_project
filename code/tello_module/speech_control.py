@@ -8,32 +8,49 @@ def speech_control_drone(me, rc_params, rc_duration, mode, command):
     command = command.lower()
 
     # Change modes via voice - take pictures, face tracking, hand gesture control
-    # Take pictures?
+    # Start face tracking
+    if re.findall(r'track face|track my face|follow my face|follow me', command):
+        mode['track_face'] = True
+        mode['watch_hand'] = False
+        command = ''
+        print('Face tracking mode activated...')
+        return (0, 0, 0, 0), rc_duration, command
+
+    # Start hand gesture control
+    if re.findall(r'watch my hand|wash my hand', command):
+        mode['watch_hand'] = True
+        mode['track_face'] = False
+        command = ''
+        print('Hand control mode activated...')
+        return (0, 0, 0, 0), rc_duration, command
+
+    # End tracking /active modes
+    if re.findall(r'stop tracking|stop watching|stop active mode', command):
+        mode['track_face'] = False
+        mode['watch_hand'] = False
+        command = ''
+        print('All active modes stopped...')
+        return (0, 0, 0, 0), rc_duration, command
+
+    # Start taking images (automatically stopping) 
     if re.findall(r'take pictures|take Images', command):
         mode['take_pics'] = True
         command = ''
         print('Image capturing mode activated...')
         return (0, 0, 0, 0), rc_duration, command
-    
-    # Track face?
-    if re.findall(r'track face|track my face', command):
-        mode['track_face'] = True
+
+    # Start video recording
+    if re.findall(r'start video|start a video|take a video|make a video', command):
+        mode['video_capt'] = True
         command = ''
-        print('Face tracking mode activated...')
+        print('Video capturing mode activated...')
         return (0, 0, 0, 0), rc_duration, command
 
-    # Track hand?
-    if re.findall(r'watch my hand|wash my hand', command):
-        mode['watch_hand'] = True
+    # Stop video recording
+    if re.findall(r'stop videoing|stop taking a video|stop video|stuff video', command):
+        mode['video_capt'] = False
         command = ''
-        print('Hand control mode activated...')
-        return (0, 0, 0, 0), rc_duration, command
-
-    # End all tracking modes
-    if re.findall(r'stop tracking|stop watching|stop active mode', command):
-        mode['track_face'] = False
-        mode['watch_hand'] = False
-        command = ''
+        print('Video capturing mode deactivated...')
         return (0, 0, 0, 0), rc_duration, command
 
 

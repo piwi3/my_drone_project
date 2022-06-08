@@ -39,16 +39,30 @@ def get_bbox_coords(results):
     except: 
         return 0, 0, 0, 0
 
-def draw_bbox(image, results, res):
+def draw_bbox(image, results, res, class_id):
     """
     Draws boundary boxes based on mediapipe output. 
     Extracts min x,y and max x,y values from landmarks for this.
     """
+    actions = ['fist', 'palm', 'index', 'ok', 'thp_up']
     coords = get_bbox_coords(results)
+    
+    # Draw bbox
     cv2.rectangle(image,
                   tuple(np.multiply(coords[:2], list(res)).astype(int)),
                   tuple(np.multiply(coords[2:], list(res)).astype(int)),
                   (0,0,255), 2)
+
+    # Draw label box
+    cv2.rectangle(image,
+                    tuple(np.add(np.multiply(coords[:2], list(res)).astype(int), [0, -30])),
+                    tuple(np.add(np.multiply(coords[:2], list(res)).astype(int), [80, 0])),
+                    (0,0,255), -1)
+
+    # Put text in label
+    cv2.putText(image, f'{actions[class_id]}', 
+                tuple(np.add(np.multiply(coords[:2], list(res)).astype(int), [0, -5])),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
 def extract_keypoints(results):
     """
@@ -71,10 +85,6 @@ def predict_hand_gesture(image, mp_model, hand_model, res):
     # Use mediapipe model to predict landmarks for hands
     image, results = mediapipe_detection(image, mp_model)
     
-    # Draw hand_landmarks and bbox optional
-    draw_landmarks(image, results)
-    draw_bbox(image, results, res)
-    
     # Preprocess landmarks/keypoints for model from right hand
     keypoints = extract_keypoints(results)
     keypoints = keypoints.reshape(1,-1)
@@ -83,6 +93,10 @@ def predict_hand_gesture(image, mp_model, hand_model, res):
     y_pred = hand_model.predict(keypoints)
     class_id = np.argmax(y_pred)
     class_prob = np.max(y_pred)
+
+    # Draw hand_landmarks and bbox optional
+    draw_landmarks(image, results)
+    draw_bbox(image, results, res, class_id)
     
     # Calculate bbox params -> center_point and area for tracking
     coords = get_bbox_coords(results)
@@ -110,44 +124,45 @@ def convert_hand_signal_to_rc_params(rc_params, hand_pred, hand_data, pid, error
     # Define speed for movements
     speed = 20
     
-    if hand_prob > 0.5:
-        # Move drone via hand gestures (change rc-params)
-        if hand_id == 0: # 'fist'
-            print(f'fist, p={hand_prob}')
-            fb = speed
+    if cx != 0: # Only change rc params if a hand is in the frame
+        if hand_prob > 0.8:
+            # Move drone via hand gestures (change rc-params)
+            if hand_id == 0: # 'fist'
+                print(f'fist, p={hand_prob}')
+                fb = speed
 
-        if hand_id == 1: # 'palm'
-            print(f'palm, p={hand_prob}')
-            fb = -speed
-        
-        if hand_id == 2: # 'index'
-            print(f'index, p={hand_prob}')
-            # Only control lr, ud, rest is 0
-            fb, yv = 0, 0
+            if hand_id == 1: # 'palm'
+                print(f'palm, p={hand_prob}')
+                fb = -speed
             
-            # Adjust lr and ud params using pid-control
-            # Left/right
-            lr = prp * lr_err + dif * (lr_err - lr_err_prv)
-            lr = int(np.clip(lr, -10, 10))
+            if hand_id == 2: # 'index'
+                print(f'index, p={hand_prob}')
+                # Only control lr, ud, rest is 0
+                fb, yv = 0, 0
+                
+                # Adjust lr and ud params using pid-control
+                # Left/right
+                lr = prp * lr_err + dif * (lr_err - lr_err_prv)
+                lr = int(np.clip(lr, -10, 10))
 
-            # Up/down
-            ud = prp * ud_err + dif * (ud_err - ud_err_prv)
-            ud = int(np.clip(ud, -25, 25))
+                # Up/down
+                ud = prp * ud_err + dif * (ud_err - ud_err_prv)
+                ud = int(np.clip(ud, -25, 25))
 
-        if hand_id == 3: # 'ok'
-            print(f'ok, p={hand_prob}')
-            # Only control yv, rest is 0
-            fb, ud, lr = 0, 0, 0
-            
-            # Adjust lr and ud params using pid-control
-            # Turn left/right
-            yv = prp * yv_err + dif * (yv_err - yv_err_prv)
-            yv = int(np.clip(yv, -25, 25))
+            if hand_id == 3: # 'ok'
+                print(f'ok, p={hand_prob}')
+                # Only control yv, rest is 0
+                fb, ud, lr = 0, 0, 0
+                
+                # Adjust lr and ud params using pid-control
+                # Turn left/right
+                yv = prp * yv_err + dif * (yv_err - yv_err_prv)
+                yv = int(np.clip(yv, -25, 25))
 
-        if hand_id == 4: # 'thumb_up'
-            print(f'thumb up, p={hand_prob}')
-            # Stop all
-            lr, fb, ud, yv = 0, 0, 0, 0
+            if hand_id == 4: # 'thumb_up'
+                print(f'thumb up, p={hand_prob}')
+                # Stop all
+                lr, fb, ud, yv = 0, 0, 0, 0
 
     return (lr, fb, ud, yv)
     
