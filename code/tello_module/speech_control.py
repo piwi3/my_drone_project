@@ -56,7 +56,7 @@ def speech_control_drone(me, rc_params, rc_duration, mode, command):
 
     # Control movement of drone via voice
     # Start and land drone via voice
-    if re.findall(r'land|stop|finish', command) and me.is_flying:
+    if re.findall(r'land|blend|lane|len|touch down', command) and me.is_flying:
         me.land()
         rc_duration = 2
         command = ''

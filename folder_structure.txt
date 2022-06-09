@@ -1,0 +1,39 @@
+.
+├── LICENSE
+├── README.md
+├── code
+│   ├── main.py
+│   ├── notebooks
+│   │   ├── face_detection.ipynb
+│   │   ├── hand_detection.ipynb
+│   │   ├── hand_detection_mp.ipynb
+│   │   ├── logs
+│   │   └── sandbox.ipynb
+│   └── tello_module
+│       ├── __init__.py
+│       ├── face_tracking.py
+│       ├── hand_gesture_control.py
+│       ├── image_capturing.py
+│       ├── keyboard_control.py
+│       ├── models
+│       └── speech_control.py
+├── data
+│   ├── face_detection
+│   │   ├── augmented
+│   │   ├── new
+│   │   └── raw
+│   ├── hand_detection
+│   │   ├── augmented
+│   │   ├── new
+│   │   └── raw
+│   ├── hand_detection_mp
+│   │   ├── fist
+│   │   ├── index
+│   │   ├── ok
+│   │   ├── palm
+│   │   └── thumb_up
+│   └── videos
+│       └── presentation
+└── folder_structure.txt
+
+22 directories, 14 files
